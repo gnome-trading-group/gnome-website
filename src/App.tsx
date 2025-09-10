@@ -22,7 +22,10 @@ function App() {
     rotationSpeed: number
   }>>([])
   const [isScrolled, setIsScrolled] = useState(false)
+  const interactionEnabledRef = useRef(true)
   const gnomeImageRef = useRef<HTMLImageElement | null>(null)
+  const animationActiveRef = useRef(true)
+  const [isPaused, setIsPaused] = useState(false)
 
   // Load gnome logo image
   const loadGnomeImage = useCallback(() => {
@@ -92,7 +95,14 @@ function App() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     
+    if (!animationActiveRef.current) {
+      // Do not clear; keep current frame visible when paused
+      animationRef.current = null
+      return
+    }
+    
     const mouse = mouseRef.current
+    const interactionEnabled = interactionEnabledRef.current
     const particles = particlesRef.current
     
     // Clear canvas
@@ -107,7 +117,7 @@ function App() {
         const distance = Math.sqrt(dx * dx + dy * dy)
         
         // Mouse interaction
-        if (distance < 100) {
+        if (interactionEnabled && distance < 100) {
           const force = (100 - distance) / 100
           const angle = Math.atan2(dy, dx)
           particle.vx += Math.cos(angle) * force * 0.1
@@ -142,7 +152,7 @@ function App() {
         const distance = Math.sqrt(dx * dx + dy * dy)
         
         // Mouse interaction for gnomes (stronger effect than particles)
-        if (distance < 120) {
+        if (interactionEnabled && distance < 120) {
           const force = (120 - distance) / 120
           const angle = Math.atan2(dy, dx)
           particle.vx += Math.cos(angle) * force * 0.15 // Stronger force than particles
@@ -262,16 +272,51 @@ function App() {
 
   // Handle scroll for navbar
   useEffect(() => {
+    let scrollTimeout: number | null = null
+
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+      const hero = heroRef.current
+      const heroHeight = hero ? hero.getBoundingClientRect().height : 0
+      const threshold = Math.max(50, heroHeight * 0.5) // halfway down hero
+      const scrolled = window.scrollY > 50
+      const beyondThreshold = window.scrollY > threshold
+      setIsScrolled(scrolled)
+
+      // Disable interaction and animation when beyond threshold
+      interactionEnabledRef.current = !beyondThreshold
+      setIsPaused(beyondThreshold)
+      if (beyondThreshold) {
+        animationActiveRef.current = false
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current)
+          animationRef.current = null
+        }
+      }
+
+      // Debounce: re-enable after scrolling stops and only near top
+      if (scrollTimeout) {
+        window.clearTimeout(scrollTimeout)
+      }
+      scrollTimeout = window.setTimeout(() => {
+        const hero = heroRef.current
+        const heroHeight = hero ? hero.getBoundingClientRect().height : 0
+        const threshold = Math.max(50, heroHeight * 0.5)
+        const withinInteractive = window.scrollY <= threshold
+        interactionEnabledRef.current = withinInteractive
+        setIsPaused(!withinInteractive)
+        animationActiveRef.current = withinInteractive
+        if (withinInteractive && !animationRef.current) {
+          animationRef.current = requestAnimationFrame(animate)
+        }
+      }, 150)
     }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll as EventListener)
   }, [])
 
   return (
-    <div className="app">
+    <div className={`app ${isPaused ? 'paused' : ''}`}>
       {/* Navigation */}
       <nav className={`nav ${isScrolled ? 'nav-scrolled' : ''}`}>
         <div className="nav-container">
@@ -297,8 +342,8 @@ function App() {
           <div className="hero-cta">
             <a href="mailto:contact@gnometrading.group" className="cta-button">
               Contact
-            </a>
-          </div>
+        </a>
+      </div>
         </div>
         <div className="hero-background">
           <canvas 
@@ -359,8 +404,8 @@ function App() {
                 the complexities of modern financial markets while 
                 maintaining the highest standards of risk management and 
                 operational excellence.
-              </p>
-            </div>
+        </p>
+      </div>
             <div className="about-stats">
               <div className="stat">
                 <div className="stat-number">24/7</div>

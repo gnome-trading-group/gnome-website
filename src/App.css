@@ -164,6 +164,11 @@ body {
   cursor: default;
 }
 
+/* Pause CSS keyframes when not at top */
+.paused * {
+  animation-play-state: paused !important;
+}
+
 .title-word {
   animation-delay: 0s;
 }
