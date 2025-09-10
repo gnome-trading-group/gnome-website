@@ -5,6 +5,7 @@ import * as certificatemanager from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import { Construct } from "constructs";
+import { execSync } from "child_process";
 import * as path from "path";
 import { Stage } from "@gnome-trading-group/gnome-shared-cdk";
 
@@ -62,7 +63,7 @@ export class FrontendStack extends cdk.Stack {
         command: [
           'bash', '-c',
           [
-            `cp .env.${props.stage} .env`,
+            // `cp .env.${props.stage} .env`,
             'npm ci',
             'npm run build',
             'cp -r dist/* /asset-output',
