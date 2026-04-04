@@ -2,290 +2,198 @@ import './App.css'
 import logo from './assets/logo.svg'
 import { useEffect, useRef, useCallback, useState } from 'react'
 
+const GNOME_COUNT = 60
+
+function useScrollReveal() {
+  const ref = useRef<HTMLElement>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.unobserve(node)
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -50px 0px' }
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  return { ref, isVisible }
+}
+
 function App() {
+  const [isScrolled, setIsScrolled] = useState(false)
+  const services = useScrollReveal()
+  const about = useScrollReveal()
+  const contact = useScrollReveal()
+
   const heroRef = useRef<HTMLElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number | null>(null)
-  const mouseRef = useRef({ x: 0, y: 0 })
-  const particlesRef = useRef<Array<{
+  const pointerRef = useRef({ x: -9999, y: -9999 })
+  const animationActiveRef = useRef(true)
+  const gnomeImageRef = useRef<HTMLImageElement | null>(null)
+  const gnomesRef = useRef<Array<{
     x: number
     y: number
     vx: number
     vy: number
     size: number
-    originalX: number
-    originalY: number
-    targetX: number
-    targetY: number
-    type: 'particle' | 'gnome'
     rotation: number
     rotationSpeed: number
   }>>([])
-  const [isScrolled, setIsScrolled] = useState(false)
-  const interactionEnabledRef = useRef(true)
-  const gnomeImageRef = useRef<HTMLImageElement | null>(null)
-  const animationActiveRef = useRef(true)
-  const [isPaused, setIsPaused] = useState(false)
 
-  // Load gnome logo image
   const loadGnomeImage = useCallback(() => {
     if (gnomeImageRef.current) return Promise.resolve()
-    
     return new Promise<void>((resolve) => {
       const img = new Image()
-      img.onload = () => {
-        gnomeImageRef.current = img
-        resolve()
-      }
+      img.onload = () => { gnomeImageRef.current = img; resolve() }
       img.src = logo
     })
   }, [])
 
-  // Initialize particles
-  const initParticles = useCallback(() => {
-    if (!canvasRef.current || !heroRef.current) return
-    
+  const initGnomes = useCallback(() => {
+    if (!canvasRef.current) return
     const canvas = canvasRef.current
-    const particles: typeof particlesRef.current = []
-    
-    // Create 1000+ particles and 50 gnome logos
-    for (let i = 0; i < 1200; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
-        size: Math.random() * 3 + 1,
-        originalX: 0,
-        originalY: 0,
-        targetX: 0,
-        targetY: 0,
-        type: 'particle',
-        rotation: 0,
-        rotationSpeed: 0
-      })
-    }
-    
-    // Add falling gnome logos
-    for (let i = 0; i < 50; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: -50 - Math.random() * 200, // Start above the canvas
-        vx: (Math.random() - 0.5) * 0.2,
-        vy: Math.random() * 0.5 + 0.3, // Falling speed
-        size: Math.random() * 8 + 12, // Larger gnome logos
-        originalX: 0,
-        originalY: 0,
-        targetX: 0,
-        targetY: 0,
-        type: 'gnome',
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.05
-      })
-    }
-    
-    particlesRef.current = particles
+    gnomesRef.current = Array.from({ length: GNOME_COUNT }, () => ({
+      x: Math.random() * canvas.width,
+      y: -50 - Math.random() * 400,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: Math.random() * 1.5 + 1.2,
+      size: Math.random() * 10 + 14,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.04,
+    }))
   }, [])
 
-  // Animation loop
   const animate = useCallback(() => {
-    if (!canvasRef.current || !heroRef.current) return
-    
     const canvas = canvasRef.current
+    if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    
+
     if (!animationActiveRef.current) {
-      // Do not clear; keep current frame visible when paused
       animationRef.current = null
       return
     }
-    
-    const mouse = mouseRef.current
-    const interactionEnabled = interactionEnabledRef.current
-    const particles = particlesRef.current
-    
-    // Clear canvas
+
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    
-    // Update and draw particles
-    particles.forEach(particle => {
-      if (particle.type === 'particle') {
-        // Calculate distance from mouse
-        const dx = particle.x - mouse.x
-        const dy = particle.y - mouse.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-        
-        // Mouse interaction
-        if (interactionEnabled && distance < 100) {
-          const force = (100 - distance) / 100
-          const angle = Math.atan2(dy, dx)
-          particle.vx += Math.cos(angle) * force * 0.1
-          particle.vy += Math.sin(angle) * force * 0.1
-        }
-        
-        // Apply friction and return to original position
-        particle.vx *= 0.98
-        particle.vy *= 0.98
-        
-        // Update position
-        particle.x += particle.vx
-        particle.y += particle.vy
-        
-        // Keep particles in bounds
-        if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -0.5
-        if (particle.y < 0 || particle.y > canvas.height) particle.vy *= -0.5
-        particle.x = Math.max(0, Math.min(canvas.width, particle.x))
-        particle.y = Math.max(0, Math.min(canvas.height, particle.y))
-        
-        // Draw particle
-        ctx.beginPath()
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(74, 154, 90, ${0.6 + Math.random() * 0.4})`
-        ctx.shadowBlur = 10
-        ctx.shadowColor = '#4a9a5a'
-        ctx.fill()
-      } else if (particle.type === 'gnome') {
-        // Calculate distance from mouse for gnome interaction
-        const dx = particle.x - mouse.x
-        const dy = particle.y - mouse.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-        
-        // Mouse interaction for gnomes (stronger effect than particles)
-        if (interactionEnabled && distance < 120) {
-          const force = (120 - distance) / 120
-          const angle = Math.atan2(dy, dx)
-          particle.vx += Math.cos(angle) * force * 0.15 // Stronger force than particles
-          particle.vy += Math.sin(angle) * force * 0.15
-        }
-        
-        // Apply friction to horizontal movement, but maintain falling motion
-        particle.vx *= 0.97 // Friction for horizontal movement
-        // Don't apply friction to vertical velocity to maintain falling
-        if (particle.vy < 0.3) {
-          particle.vy = Math.random() * 0.5 + 0.3 // Ensure minimum falling speed
-        }
-        
-        // Update gnome logo position and rotation
-        particle.x += particle.vx
-        particle.y += particle.vy
-        particle.rotation += particle.rotationSpeed
-        
-        // Reset gnome when it falls off screen
-        if (particle.y > canvas.height + 50) {
-          particle.y = -50 - Math.random() * 200
-          particle.x = Math.random() * canvas.width
-          // Reset velocity to normal falling speed
-          particle.vx = (Math.random() - 0.5) * 0.2
-          particle.vy = Math.random() * 0.5 + 0.3
-        }
-        
-        // Keep gnomes in horizontal bounds
-        if (particle.x < -50) particle.x = canvas.width + 50
-        if (particle.x > canvas.width + 50) particle.x = -50
-        
-        // Draw gnome logo
-        ctx.save()
-        ctx.translate(particle.x, particle.y)
-        ctx.rotate(particle.rotation)
-        
-        if (gnomeImageRef.current) {
-          // Draw the actual gnome logo
-          const logoSize = particle.size
-          ctx.shadowBlur = 15
-          ctx.shadowColor = '#4a9a5a'
-          ctx.globalAlpha = 0.8 + Math.random() * 0.2
-          ctx.drawImage(
-            gnomeImageRef.current,
-            -logoSize / 2,
-            -logoSize / 2,
-            logoSize,
-            logoSize
-          )
-          ctx.globalAlpha = 1
-        } else {
-          // Fallback: draw a simple circle if image isn't loaded yet
-          ctx.beginPath()
-          ctx.arc(0, 0, particle.size / 2, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(74, 154, 90, ${0.7 + Math.random() * 0.3})`
-          ctx.shadowBlur = 15
-          ctx.shadowColor = '#4a9a5a'
-          ctx.fill()
-        }
-        
-        ctx.restore()
+
+    const pointer = pointerRef.current
+    const img = gnomeImageRef.current
+
+    for (const g of gnomesRef.current) {
+      // Pointer repulsion
+      const dx = g.x - pointer.x
+      const dy = g.y - pointer.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist < 130) {
+        const force = (130 - dist) / 130
+        const angle = Math.atan2(dy, dx)
+        g.vx += Math.cos(angle) * force * 0.18
+        g.vy += Math.sin(angle) * force * 0.18
       }
-    })
-    
+
+      // Friction on horizontal, maintain fall
+      g.vx *= 0.96
+      if (g.vy < 1.2) g.vy = Math.random() * 1.5 + 1.2
+
+      g.x += g.vx
+      g.y += g.vy
+      g.rotation += g.rotationSpeed
+
+      // Wrap horizontally
+      if (g.x < -60) g.x = canvas.width + 60
+      if (g.x > canvas.width + 60) g.x = -60
+
+      // Reset when fallen off bottom
+      if (g.y > canvas.height + 60) {
+        g.y = -60 - Math.random() * 200
+        g.x = Math.random() * canvas.width
+        g.vx = (Math.random() - 0.5) * 0.4
+        g.vy = Math.random() * 1.5 + 1.2
+      }
+
+      ctx.save()
+      ctx.translate(g.x, g.y)
+      ctx.rotate(g.rotation)
+      ctx.globalAlpha = 0.55 + Math.random() * 0.2
+
+      if (img) {
+        ctx.shadowBlur = 12
+        ctx.shadowColor = 'rgba(61, 139, 79, 0.6)'
+        ctx.drawImage(img, -g.size / 2, -g.size / 2, g.size, g.size)
+      } else {
+        ctx.beginPath()
+        ctx.arc(0, 0, g.size / 2, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(61, 139, 79, 0.6)'
+        ctx.fill()
+      }
+
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
     animationRef.current = requestAnimationFrame(animate)
   }, [])
 
+  // Canvas setup
   useEffect(() => {
-    if (!canvasRef.current || !heroRef.current) return
-    
     const canvas = canvasRef.current
-    const rect = heroRef.current.getBoundingClientRect()
-    
-    // Set canvas size
-    canvas.width = rect.width
-    canvas.height = rect.height
-    
-    // Load gnome image and initialize particles
-    loadGnomeImage().then(() => {
-      initParticles()
-      animate()
-    })
-    
-    // Handle mouse movement
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!heroRef.current) return
-      
-      const rect = heroRef.current.getBoundingClientRect()
-      mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      }
-    }
-    
-    const handleResize = () => {
-      if (!canvasRef.current || !heroRef.current) return
-      
-      const rect = heroRef.current.getBoundingClientRect()
+    const hero = heroRef.current
+    if (!canvas || !hero) return
+
+    const setSize = () => {
+      const rect = hero.getBoundingClientRect()
       canvas.width = rect.width
       canvas.height = rect.height
-      initParticles()
+      initGnomes()
     }
-    
-    heroRef.current.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('resize', handleResize)
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
-      if (heroRef.current) {
-        heroRef.current.removeEventListener('mousemove', handleMouseMove)
-      }
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [initParticles, animate, loadGnomeImage])
+    setSize()
 
-  // Handle scroll for navbar
+    loadGnomeImage().then(() => {
+      animationActiveRef.current = true
+      animate()
+    })
+
+    const onPointerMove = (e: PointerEvent) => {
+      const rect = hero.getBoundingClientRect()
+      pointerRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    }
+    const onPointerLeave = () => { pointerRef.current = { x: -9999, y: -9999 } }
+
+    hero.addEventListener('pointermove', onPointerMove)
+    hero.addEventListener('pointerleave', onPointerLeave)
+    window.addEventListener('resize', setSize)
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+      hero.removeEventListener('pointermove', onPointerMove)
+      hero.removeEventListener('pointerleave', onPointerLeave)
+      window.removeEventListener('resize', setSize)
+    }
+  }, [initGnomes, animate, loadGnomeImage])
+
+  // Scroll: nav + pause canvas when scrolled past hero
   useEffect(() => {
-    let scrollTimeout: number | null = null
+    let timeout: number | null = null
 
     const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50)
+
       const hero = heroRef.current
       const heroHeight = hero ? hero.getBoundingClientRect().height : 0
-      const threshold = Math.max(50, heroHeight * 0.5) // halfway down hero
-      const scrolled = window.scrollY > 50
-      const beyondThreshold = window.scrollY > threshold
-      setIsScrolled(scrolled)
+      const beyondHero = window.scrollY > heroHeight * 0.6
 
-      // Disable interaction and animation when beyond threshold
-      interactionEnabledRef.current = !beyondThreshold
-      setIsPaused(beyondThreshold)
-      if (beyondThreshold) {
+      if (beyondHero) {
         animationActiveRef.current = false
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current)
@@ -293,31 +201,24 @@ function App() {
         }
       }
 
-      // Debounce: re-enable after scrolling stops and only near top
-      if (scrollTimeout) {
-        window.clearTimeout(scrollTimeout)
-      }
-      scrollTimeout = window.setTimeout(() => {
+      if (timeout) window.clearTimeout(timeout)
+      timeout = window.setTimeout(() => {
         const hero = heroRef.current
         const heroHeight = hero ? hero.getBoundingClientRect().height : 0
-        const threshold = Math.max(50, heroHeight * 0.5)
-        const withinInteractive = window.scrollY <= threshold
-        interactionEnabledRef.current = withinInteractive
-        setIsPaused(!withinInteractive)
-        animationActiveRef.current = withinInteractive
-        if (withinInteractive && !animationRef.current) {
+        const withinHero = window.scrollY <= heroHeight * 0.6
+        if (withinHero && !animationRef.current) {
+          animationActiveRef.current = true
           animationRef.current = requestAnimationFrame(animate)
         }
       }, 150)
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll as EventListener)
-  }, [])
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [animate])
 
   return (
-    <div className={`app ${isPaused ? 'paused' : ''}`}>
-      {/* Navigation */}
+    <div className="app">
       <nav className={`nav ${isScrolled ? 'nav-scrolled' : ''}`}>
         <div className="nav-container">
           <img src={logo} className="nav-logo" alt="Gnome Trading Group" />
@@ -325,60 +226,49 @@ function App() {
         </div>
       </nav>
 
-      {/* Hero Section */}
       <section className="hero" ref={heroRef}>
         <div className="hero-content">
           <div className="hero-logo-container">
-            <img src={logo} className="hero-logo" alt="Gnome Trading Group" />
+            <img src={logo} className="hero-logo" alt="" />
           </div>
-          <h1 className="hero-title">
-            <span className="title-word">GTG</span>
-          </h1>
+          <h1 className="hero-title">Gnome Trading Group</h1>
           <p className="hero-subtitle">
-            Leveraging cutting-edge technology and state-of-the-art research 
-            to provide superior market-making and liquidity services across 
-            global financial markets.
+            Leveraging cutting-edge technology and quantitative research
+            to provide superior market-making and liquidity services
+            across global financial markets.
           </p>
-          <div className="hero-cta">
-            <a href="mailto:contact@gnometrading.group" className="cta-button">
-              Contact
-        </a>
-      </div>
+          <a href="mailto:contact@gnometrading.group" className="cta-button">
+            Get in Touch
+          </a>
         </div>
-        <div className="hero-background">
-          <canvas 
-            ref={canvasRef}
-            className="particle-canvas"
-          />
-        </div>
+        <canvas ref={canvasRef} className="gnome-canvas" />
       </section>
 
-      {/* Services Section */}
-      <section className="services">
-        <div className="container">
+      <section className="services" ref={services.ref}>
+        <div className={`container reveal ${services.isVisible ? 'revealed' : ''}`}>
           <h2 className="section-title">Our Expertise</h2>
           <div className="services-grid">
             <div className="service-card">
-              <div className="service-icon market-making-icon"></div>
+              <span className="service-card-icon">📈</span>
               <h3>Market Making</h3>
               <p>
-                Advanced algorithmic strategies providing continuous liquidity 
+                Advanced algorithmic strategies providing continuous liquidity
                 and tight spreads across major global exchanges.
               </p>
             </div>
             <div className="service-card">
-              <div className="service-icon liquidity-icon"></div>
+              <span className="service-card-icon">⚡</span>
               <h3>Liquidity Taking</h3>
               <p>
-                Sophisticated execution algorithms designed to minimize market 
+                Sophisticated execution algorithms designed to minimize market
                 impact while maximizing trading efficiency.
               </p>
             </div>
             <div className="service-card">
-              <div className="service-icon research-icon"></div>
+              <span className="service-card-icon">🔬</span>
               <h3>Research & Technology</h3>
               <p>
-                Proprietary research and cutting-edge technology stack 
+                Proprietary research and cutting-edge technology stack
                 powering our trading infrastructure and strategies.
               </p>
             </div>
@@ -386,26 +276,24 @@ function App() {
         </div>
       </section>
 
-      {/* About Section */}
-      <section className="about">
-        <div className="container">
+      <section className="about" ref={about.ref}>
+        <div className={`container reveal ${about.isVisible ? 'revealed' : ''}`}>
           <div className="about-content">
             <div className="about-text">
               <h2>Technology-Driven Trading</h2>
               <p>
-                At Gnome Trading Group, we combine deep market expertise with 
-                advanced technological infrastructure to deliver exceptional 
-                trading performance. Our team of quantitative researchers, 
-                engineers, and traders work together to develop innovative 
+                At Gnome Trading Group, we combine deep market expertise with
+                advanced technological infrastructure to deliver exceptional
+                trading performance. Our team of quantitative researchers,
+                engineers, and traders work together to develop innovative
                 solutions that adapt to dynamic global markets.
               </p>
               <p>
-                We focus on building robust, scalable systems that can handle 
-                the complexities of modern financial markets while 
-                maintaining the highest standards of risk management and 
-                operational excellence.
-        </p>
-      </div>
+                We focus on building robust, scalable systems that can handle
+                the complexities of modern financial markets while maintaining
+                the highest standards of risk management and operational excellence.
+              </p>
+            </div>
             <div className="about-stats">
               <div className="stat">
                 <div className="stat-number">24/7</div>
@@ -424,23 +312,19 @@ function App() {
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section className="contact">
-        <div className="container">
+      <section className="contact" ref={contact.ref}>
+        <div className={`container reveal ${contact.isVisible ? 'revealed' : ''}`}>
           <h2 className="section-title">Ready to Partner?</h2>
           <p className="contact-description">
-            Let's discuss how our advanced trading solutions can support 
+            Let's discuss how our advanced trading solutions can support
             your trading operations.
           </p>
-          <div className="contact-info">
-            <a href="mailto:contact@gnometrading.group" className="contact-email">
-              Contact
-            </a>
-          </div>
+          <a href="mailto:contact@gnometrading.group" className="cta-button">
+            Get in Touch
+          </a>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="footer">
         <div className="container">
           <div className="footer-content">
@@ -449,7 +333,7 @@ function App() {
               <span>Gnome Trading Group</span>
             </div>
             <div className="footer-text">
-              Advanced trading solutions powered by technology and research.
+              &copy; {new Date().getFullYear()} Gnome Trading Group
             </div>
           </div>
         </div>
