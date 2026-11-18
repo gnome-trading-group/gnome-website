@@ -1,62 +1,42 @@
-/* Import futuristic fonts from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 :root {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.6;
-  font-weight: 400;
-  
+  --bg: #0b0c0e;
+  --fg: #e9eaec;
+  --muted: #8a8f98;
+  --line: #23262b;
+  --accent: #56b263;
+  --code: #b8c4d6;
+  --term-bg: #07080a;
+  --sans: 'Instrument Sans', 'Helvetica Neue', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   color-scheme: dark;
-  color: #ffffff;
-  background-color: #141414;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-#root {
-  min-height: 100vh;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-a {
-  font-weight: 500;
-  text-decoration: inherit;
-  transition: all 0.3s ease;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-button:focus,
-button:focus-visible {
-  outline: 2px solid #2d5a3d;
-  outline-offset: 2px;
+[hidden] {
+  display: none !important;
 }

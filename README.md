@@ -1,69 +1,31 @@
-# React + TypeScript + Vite
+# gnome-website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The Gnome Trading Group website: a single page built with React, TypeScript and Vite, deployed by the CDK pipeline in `cdk/`.
 
-Currently, two official plugins are available:
+## Develop
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm install
+npm run dev     # local dev server
+npm run build   # type-check and build to dist/
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Layout
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `src/App.tsx`: the page sections and copy.
+- `src/components/WireHat.tsx`: the fixed wireframe hat that morphs as the page scrolls.
+- `src/components/Terminal.tsx`: the hidden terminal (press `~`, click the footer `_`, or click the cursor at the bottom of the page) and its `vim` file viewer.
+- `src/terminal/`: the terminal's filesystem, shell commands and markdown highlighter.
+- `src/content/`: the files the terminal can read.
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Terminal content
+
+Everything in `src/content/` is bundled at build time and mounted at the guest's home directory (`~`). A leading `_` in a file or folder name becomes a `.`, so it is hidden from plain `ls`:
+
+| In the repo                   | In the terminal         |
+|-------------------------------|-------------------------|
+| `src/content/README.md`       | `~/README.md`           |
+| `src/content/_gnomerc`        | `~/.gnomerc`            |
+| `src/content/_infra/feed.md`  | `~/.infra/feed.md`      |
+
+To add or edit a document, change the file and rebuild. `vim <file>` shows the raw markdown beside the rendered version.
